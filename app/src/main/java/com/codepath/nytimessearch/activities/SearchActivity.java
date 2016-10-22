@@ -4,6 +4,8 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.text.TextUtils;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -11,6 +13,7 @@ import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.GridView;
+import android.widget.Toast;
 
 import com.codepath.nytimessearch.Article;
 import com.codepath.nytimessearch.ArticleArrayAdapter;
@@ -33,6 +36,10 @@ public class SearchActivity extends AppCompatActivity {
     GridView gvResults;
     ArrayList<Article> articles;
     ArticleArrayAdapter adapter;
+    private final int REQUEST_CODE = 200;
+    String sort;
+    String beginDate;
+    String newsDesk;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -82,6 +89,8 @@ public class SearchActivity extends AppCompatActivity {
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
+            Intent i = new Intent(getApplicationContext(), SettingsActivity.class);
+            startActivityForResult(i, REQUEST_CODE);
             return true;
         }
 
@@ -95,9 +104,21 @@ public class SearchActivity extends AppCompatActivity {
         AsyncHttpClient client = new AsyncHttpClient();
         String url = "http://api.nytimes.com/svc/search/v2/articlesearch.json";
 
+        adapter.clear();
+
         RequestParams params = new RequestParams();
         params.put("api-key","935950ac35df4cbb80c1eb1091ffc8ad");
         params.put("page", 0);
+        if (!TextUtils.isEmpty(sort)){
+            params.put("sort",sort);
+        }
+        if (!TextUtils.isEmpty(beginDate)){
+            params.put("begin_date", beginDate);
+        }
+        if (!TextUtils.isEmpty(newsDesk)){
+            params.put("fq","news_desk:(" +  newsDesk + ")");
+        }
+        Log.d("DEBUG","params: "+params.toString());
         params.put("q",query);
         client.get(url, params, new JsonHttpResponseHandler() {
             @Override
@@ -114,5 +135,18 @@ public class SearchActivity extends AppCompatActivity {
             }
         });
         //Toast.makeText(this, query, Toast.LENGTH_LONG).show();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        // REQUEST_CODE is defined above
+        if (resultCode == RESULT_OK && requestCode == REQUEST_CODE) {
+            // Extract name value from result extras
+            beginDate = data.getExtras().getString("begin_date");
+            sort = data.getExtras().getString("sort");
+            newsDesk = data.getExtras().getString("newsDesk");
+            // Toast the name to display temporarily on screen
+            Toast.makeText(this, beginDate +" "+sort+" "+newsDesk, Toast.LENGTH_SHORT).show();
+        }
     }
 }
