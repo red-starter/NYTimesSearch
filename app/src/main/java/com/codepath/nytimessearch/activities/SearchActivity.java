@@ -17,6 +17,7 @@ import android.widget.Toast;
 
 import com.codepath.nytimessearch.Article;
 import com.codepath.nytimessearch.ArticleArrayAdapter;
+import com.codepath.nytimessearch.EndlessScrollListener;
 import com.codepath.nytimessearch.R;
 import com.loopj.android.http.AsyncHttpClient;
 import com.loopj.android.http.JsonHttpResponseHandler;
@@ -48,6 +49,17 @@ public class SearchActivity extends AppCompatActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         setupViews();
+
+        gvResults.setOnScrollListener(new EndlessScrollListener() {
+            @Override
+            public boolean onLoadMore(int page, int totalItemsCount) {
+                // Triggered only when new data needs to be appended to the list
+                // Add whatever code is needed to append new items to your AdapterView
+                customLoadMoreDataFromApi(page);
+                // or customLoadMoreDataFromApi(totalItemsCount);
+                return true; // ONLY if more data is actually being loaded; false otherwise.
+            }
+        });
     }
 
     public void setupViews(){
@@ -97,18 +109,23 @@ public class SearchActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
+    public void customLoadMoreDataFromApi(int page){
+        fetchArticles(page);
+    }
+    public void onArticleSearch(View view){
+        adapter.clear();
+        fetchArticles(0);
+    }
 
-    public void onArticleSearch(View view) {
+    public void fetchArticles(int page) {
         String query = etQuery.getText().toString();
 
         AsyncHttpClient client = new AsyncHttpClient();
         String url = "http://api.nytimes.com/svc/search/v2/articlesearch.json";
 
-        adapter.clear();
-
         RequestParams params = new RequestParams();
         params.put("api-key","935950ac35df4cbb80c1eb1091ffc8ad");
-        params.put("page", 0);
+        params.put("page", page);
         if (!TextUtils.isEmpty(sort)){
             params.put("sort",sort);
         }
@@ -118,9 +135,14 @@ public class SearchActivity extends AppCompatActivity {
         if (!TextUtils.isEmpty(newsDesk)){
             params.put("fq","news_desk:(" +  newsDesk + ")");
         }
-        Log.d("DEBUG","params: "+params.toString());
         params.put("q",query);
+        Log.d("DEBUG","params: "+params.toString());
         client.get(url, params, new JsonHttpResponseHandler() {
+            @Override
+            public void onFailure(int statusCode, Header[] headers, String responseString, Throwable throwable) {
+                Log.d("DEBUG", "response: " + responseString);
+            }
+
             @Override
             public void onSuccess(int statusCode, Header[] headers, JSONObject response) {
                 JSONArray articleJSONResults;
