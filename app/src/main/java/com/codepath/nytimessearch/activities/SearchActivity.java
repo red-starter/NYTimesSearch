@@ -179,10 +179,11 @@ public class SearchActivity extends AppCompatActivity {
             params.put("fq","news_desk:(" +  newsDesk + ")");
         }
         params.put("q",getQuery());
+        Log.d("DEBUG","params: " + params.toString());
         client.get(url, params, new JsonHttpResponseHandler() {
             @Override
             public void onFailure(int statusCode, Header[] headers, Throwable throwable, JSONObject errorResponse) {
-                Log.d("DEBUG","error respones" + errorResponse.toString());
+                Log.d("DEBUG","error: " + errorResponse.toString());
             }
 
             @Override
