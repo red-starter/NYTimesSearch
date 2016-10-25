@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.v4.view.MenuItemCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.SearchView;
@@ -149,8 +150,17 @@ public class SearchActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    public void customLoadMoreDataFromApi(int page){
-        fetchArticles(page);
+    public void customLoadMoreDataFromApi(final int page){
+        Handler handler = new Handler();
+
+        Runnable runnableCode = new Runnable() {
+            @Override
+            public void run() {
+                fetchArticles(page);
+            }
+        };
+        handler.postDelayed(runnableCode,200);
+
     }
 
     public void fetchArticles(int page) {
