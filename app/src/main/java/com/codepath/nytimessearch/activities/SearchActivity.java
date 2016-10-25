@@ -1,8 +1,13 @@
 package com.codepath.nytimessearch.activities;
 
+import android.content.Context;
 import android.content.Intent;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Bundle;
+import android.support.v4.view.MenuItemCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.SearchView;
 import android.support.v7.widget.Toolbar;
 import android.text.TextUtils;
 import android.util.Log;
@@ -10,8 +15,6 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
-import android.widget.Button;
-import android.widget.EditText;
 import android.widget.GridView;
 import android.widget.Toast;
 
@@ -27,13 +30,12 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.IOException;
 import java.util.ArrayList;
 
 import cz.msebera.android.httpclient.Header;
 
 public class SearchActivity extends AppCompatActivity {
-    EditText etQuery;
-    Button btnSearch;
     GridView gvResults;
     ArrayList<Article> articles;
     ArticleArrayAdapter adapter;
@@ -41,6 +43,16 @@ public class SearchActivity extends AppCompatActivity {
     String sort;
     String beginDate;
     String newsDesk;
+
+    public void setQuery(String query) {
+        this.query = query;
+    }
+
+    public String getQuery() {
+        return query;
+    }
+
+    String query;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,9 +75,7 @@ public class SearchActivity extends AppCompatActivity {
     }
 
     public void setupViews(){
-        etQuery = (EditText) findViewById(R.id.etQuery);
         gvResults = (GridView) findViewById(R.id.gvResults);
-        btnSearch = (Button) findViewById(R.id.btnSearch);
         articles = new ArrayList<>();
         adapter = new ArticleArrayAdapter(this, articles);
         gvResults.setAdapter(adapter);
@@ -89,7 +99,28 @@ public class SearchActivity extends AppCompatActivity {
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_search, menu);
-        return true;
+        MenuItem searchItem = menu.findItem(R.id.action_search);
+        final SearchView searchView = (SearchView) MenuItemCompat.getActionView(searchItem);
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                // perform query here
+                Log.d("DEBUG","love it here" + query);
+                // workaround to avoid issues with some emulators and keyboard devices firing twice if a keyboard enter is used
+                // see https://code.google.com/p/android/issues/detail?id=24599
+                searchView.clearFocus();
+                setQuery(query);
+                adapter.clear();
+                fetchArticles(0);
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                return false;
+            }
+        });
+        return super.onCreateOptionsMenu(menu);
     }
 
     @Override
@@ -105,6 +136,15 @@ public class SearchActivity extends AppCompatActivity {
             startActivityForResult(i, REQUEST_CODE);
             return true;
         }
+        if (id == R.id.action_search) {
+            //final SearchView searchView = (SearchView) MenuItemCompat.getActionView(item);
+            // Expand the search view and request focus
+            //item.expandActionView();
+            //searchView.requestFocus();
+            Log.d("DEBUG","action search");
+        }
+
+
 
         return super.onOptionsItemSelected(item);
     }
@@ -112,13 +152,16 @@ public class SearchActivity extends AppCompatActivity {
     public void customLoadMoreDataFromApi(int page){
         fetchArticles(page);
     }
-    public void onArticleSearch(View view){
-        adapter.clear();
-        fetchArticles(0);
-    }
 
     public void fetchArticles(int page) {
-        String query = etQuery.getText().toString();
+        if (!isNetworkAvailable()){
+            Toast.makeText(this, "cannot fetch articles, the network is unavailable", Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (!isOnline()){
+            Toast.makeText(this, "cannot fetch articles, your device is offline", Toast.LENGTH_LONG).show();
+            return;
+        }
 
         AsyncHttpClient client = new AsyncHttpClient();
         String url = "http://api.nytimes.com/svc/search/v2/articlesearch.json";
@@ -135,12 +178,11 @@ public class SearchActivity extends AppCompatActivity {
         if (!TextUtils.isEmpty(newsDesk)){
             params.put("fq","news_desk:(" +  newsDesk + ")");
         }
-        params.put("q",query);
-        Log.d("DEBUG","params: "+params.toString());
+        params.put("q",getQuery());
         client.get(url, params, new JsonHttpResponseHandler() {
             @Override
-            public void onFailure(int statusCode, Header[] headers, String responseString, Throwable throwable) {
-                Log.d("DEBUG", "response: " + responseString);
+            public void onFailure(int statusCode, Header[] headers, Throwable throwable, JSONObject errorResponse) {
+                Log.d("DEBUG","error respones" + errorResponse.toString());
             }
 
             @Override
@@ -170,5 +212,22 @@ public class SearchActivity extends AppCompatActivity {
             // Toast the name to display temporarily on screen
             Toast.makeText(this, beginDate +" "+sort+" "+newsDesk, Toast.LENGTH_SHORT).show();
         }
+    }
+    private Boolean isNetworkAvailable() {
+        ConnectivityManager connectivityManager
+                = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+        return activeNetworkInfo != null && activeNetworkInfo.isConnectedOrConnecting();
+    }
+
+    public boolean isOnline() {
+        Runtime runtime = Runtime.getRuntime();
+        try {
+            Process ipProcess = runtime.exec("/system/bin/ping -c 1 8.8.8.8");
+            int     exitValue = ipProcess.waitFor();
+            return (exitValue == 0);
+        } catch (IOException e)          { e.printStackTrace(); }
+        catch (InterruptedException e) { e.printStackTrace(); }
+        return false;
     }
 }
